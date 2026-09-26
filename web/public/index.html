@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Googly TK — Googly Tower Knockdown</title>
+<link rel="icon" href="icon.png">
+<style>
+  :root { --y: #ffd21f; --ink: #1d1a14; --card: rgba(18, 20, 28, .82); --line: rgba(255,255,255,.14); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #111; color: #fff; font-family: "Avenir Next", "Nunito", system-ui, sans-serif; user-select: none; -webkit-user-select: none; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+  .hidden { display: none !important; }
+  button { font: inherit; cursor: pointer; border: 0; }
+  .btn { background: var(--y); color: var(--ink); font-weight: 900; letter-spacing: .04em; padding: 14px 28px; border-radius: 16px; font-size: 20px; box-shadow: 0 5px 0 #b08a00, 0 10px 24px rgba(0,0,0,.35); transition: transform .08s; }
+  .btn:hover { transform: translateY(-2px); } .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b08a00; }
+  .btn.alt { background: #f2f2f2; box-shadow: 0 5px 0 #9a9a9a, 0 10px 24px rgba(0,0,0,.3); }
+  .btn.big { font-size: 30px; padding: 18px 54px; border-radius: 20px; }
+  .btn.small { font-size: 15px; padding: 9px 16px; border-radius: 12px; }
+
+  /* ---------- title ---------- */
+  #title { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0) 30%, rgba(0,0,0,.45)); }
+  #logo { text-align: center; line-height: .9; margin-bottom: 18px; filter: drop-shadow(0 8px 0 rgba(0,0,0,.35)) drop-shadow(0 18px 30px rgba(0,0,0,.4)); }
+  #logo .g { font-size: min(15vw, 150px); font-weight: 900; color: var(--y); letter-spacing: -.02em; -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; }
+  #logo .tk { font-size: min(15vw, 150px); font-weight: 900; color: #fff; -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; }
+  #logo .sub { font-size: min(3.2vw, 26px); font-weight: 800; letter-spacing: .35em; color: #fff; margin-top: 10px; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+  #titleBtns { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+  #titleRow { display: flex; gap: 12px; }
+  #levels { position: fixed; inset: 0; background: rgba(8,10,16,.8); display: flex; align-items: center; justify-content: center; }
+  #levels .panel { width: min(820px, 94vw); max-height: 84vh; }
+  #lvGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 10px; overflow-y: auto; max-height: 60vh; padding: 4px; }
+  .lv { background: #2a2e3a; color: #fff; border-radius: 14px; padding: 10px 0 8px; font-weight: 900; font-size: 22px; text-align: center; border: 2px solid var(--line); }
+  .lv small { display: block; font-size: 12px; color: var(--y); letter-spacing: 2px; min-height: 14px; }
+  .lv:hover { background: #3a4050; } .lv.cur { border-color: var(--y); }
+  .panel { background: var(--card); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 24px; padding: 26px 30px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .panel h2 { margin: 0 0 14px; font-size: 30px; font-weight: 900; }
+  .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+  .slider { display: flex; align-items: center; gap: 12px; margin: 10px 0; font-weight: 700; }
+  .slider label { width: 70px; } .slider input { flex: 1; accent-color: var(--y); }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #hud > * { position: absolute; }
+  .chip { background: rgba(10,12,18,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid var(--line); border-radius: 14px; padding: 8px 14px; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  #hLevel { top: 16px; left: 16px; font-size: 18px; } #hLevel b { color: var(--y); font-size: 24px; margin-right: 6px; }
+  #hLevel .w { display: block; font-size: 12px; opacity: .75; letter-spacing: .12em; font-weight: 700; }
+  #hScore { top: 16px; right: 76px; font-size: 22px; text-align: right; } #hScore small { display: block; font-size: 11px; opacity: .7; letter-spacing: .15em; }
+  #hPause { top: 16px; right: 16px; width: 48px; height: 48px; pointer-events: auto; font-size: 22px; color: #fff; display: flex; align-items: center; justify-content: center; }
+  #meter { top: 16px; left: 50%; transform: translateX(-50%); width: min(420px, 44vw); text-align: center; }
+  #meter .lbl { font-size: 12px; letter-spacing: .2em; opacity: .8; margin-bottom: 6px; }
+  #meter .bar { position: relative; height: 16px; border-radius: 9px; background: rgba(255,255,255,.14); overflow: hidden; }
+  #meter .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #ff9f1c, #ffd21f); border-radius: 9px; transition: width .25s; }
+  #meter .fill.ok { background: linear-gradient(90deg, #38d26b, #9bff6a); }
+  #meter .need { position: absolute; top: -3px; bottom: -3px; width: 3px; background: #fff; box-shadow: 0 0 6px #000; }
+  #meter .pct { margin-top: 6px; font-size: 15px; }
+  #meter .stars { position: absolute; top: -2px; right: -2px; }
+  #ammo { bottom: 18px; left: 18px; display: flex; gap: 8px; align-items: flex-end; }
+  .am { width: 38px; height: 50px; border-radius: 19px; position: relative; border: 2px solid rgba(0,0,0,.35); box-shadow: inset -5px -6px 0 rgba(0,0,0,.15), inset 5px 5px 0 rgba(255,255,255,.25); }
+  .am::before, .am::after { content: ''; position: absolute; top: 9px; width: 13px; height: 13px; border-radius: 50%; background: radial-gradient(circle at 50% 70%, #000 35%, #fff 38%); border: 1.5px solid #111; }
+  .am::before { left: 5px; } .am::after { right: 5px; }
+  .am.next { transform: scale(1.18); transform-origin: bottom; outline: 3px solid #fff; outline-offset: 2px; }
+  .am.used { opacity: .18; }
+  #power { bottom: 28px; left: 50%; transform: translateX(-50%); width: min(360px, 50vw); }
+  #power .bar { height: 14px; border-radius: 8px; background: rgba(255,255,255,.15); overflow: hidden; border: 1px solid var(--line); }
+  #power .fill { height: 100%; width: 0; background: linear-gradient(90deg, #4ade80, #facc15 60%, #ef4444); }
+  #power .lbl { text-align: center; font-size: 12px; letter-spacing: .2em; margin-bottom: 6px; font-weight: 800; text-shadow: 0 1px 3px #000; }
+  #hint { bottom: 76px; left: 50%; transform: translateX(-50%); font-size: 15px; white-space: nowrap; opacity: .92; }
+  #wind { top: 92px; left: 50%; transform: translateX(-50%); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+  #wind .arrow { display: inline-block; font-size: 22px; transition: transform .3s; }
+  #cleared { top: 96px; left: 50%; transform: translateX(-50%); pointer-events: auto; display: flex; gap: 12px; align-items: center; font-size: 16px; background: rgba(20,110,50,.8); }
+  #saved { bottom: 18px; right: 18px; font-size: 13px; letter-spacing: .2em; opacity: 0; transition: opacity .3s; }
+  #saved.on { opacity: 1; }
+  #pops { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .pop { position: absolute; font-weight: 900; font-size: 22px; color: #fff; -webkit-text-stroke: 1px rgba(0,0,0,.6); text-shadow: 0 2px 4px rgba(0,0,0,.5); transform: translate(-50%, -50%); white-space: nowrap; }
+  .pop.gold { color: #ffd21f; font-size: 30px; }
+  #banner { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+  #banner .big { font-size: min(12vw, 110px); font-weight: 900; color: var(--y); -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill; filter: drop-shadow(0 8px 0 rgba(0,0,0,.3)); }
+  #banner .small { font-size: 24px; font-weight: 800; text-shadow: 0 2px 6px #000; margin-top: 6px; }
+  #banner.show { animation: pop .5s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes pop { from { transform: translate(-50%, -50%) scale(.3); opacity: 0; } }
+
+  /* ---------- cards ---------- */
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(6,8,14,.45); }
+  .card { text-align: center; min-width: min(460px, 92vw); animation: rise .35s ease-out; }
+  @keyframes rise { from { transform: translateY(30px); opacity: 0; } }
+  .starsBig { font-size: 64px; letter-spacing: 8px; margin: 4px 0 8px; }
+  .starsBig span { color: rgba(255,255,255,.18); display: inline-block; }
+  .starsBig span.on { color: var(--y); text-shadow: 0 0 20px rgba(255,210,31,.7); animation: starIn .4s cubic-bezier(.2,1.8,.4,1) both; }
+  @keyframes starIn { from { transform: scale(0) rotate(-90deg); } }
+  .lines { text-align: left; margin: 10px auto 0; width: 300px; font-size: 17px; }
+  .lines div { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .lines .tot { font-size: 22px; font-weight: 900; color: var(--y); border: 0; padding-top: 8px; }
+  #intro .gl { display: flex; gap: 14px; align-items: center; justify-content: center; margin-top: 14px; background: rgba(255,255,255,.07); border-radius: 16px; padding: 12px; text-align: left; }
+  #intro .gl .am { flex: none; }
+  #intro .goal { font-size: 19px; margin-top: 6px; }
+  .keys { font-size: 13px; opacity: .7; margin-top: 16px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="pops"></div>
+
+<div id="hud" class="hidden">
+  <div id="hLevel" class="chip"><b>1</b>LEVEL<span class="w">GREEN MEADOW</span></div>
+  <div id="meter" class="chip"><div class="lbl">KNOCKED OFF</div><div class="bar"><div class="fill"></div><div class="need"></div></div><div class="pct">0% / 60%</div></div>
+  <div id="hScore" class="chip"><small>SCORE</small><span>0</span></div>
+  <button id="hPause" class="chip" title="Pause (Esc)">❚❚</button>
+  <div id="wind" class="chip hidden">WIND <span class="arrow">➜</span> <span class="v">0</span></div>
+  <div id="cleared" class="chip hidden">✔ CLEARED! Keep shooting for more stars, or <button class="btn small" id="finishBtn">FINISH ⏎</button></div>
+  <div id="ammo"></div>
+  <div id="hint" class="chip">Move the mouse to aim · hold click to power up · let go to FIRE</div>
+  <div id="power" class="hidden"><div class="lbl">POWER</div><div class="bar"><div class="fill"></div></div></div>
+  <div id="saved" class="chip">SAVED ✓</div>
+</div>
+<div id="banner" class="hidden"><div class="big"></div><div class="small"></div></div>
+
+<div id="title">
+  <div id="logo"><span class="g">GOOGLY</span> <span class="tk">TK</span><div class="sub">GOOGLY TOWER KNOCKDOWN</div></div>
+  <div id="titleBtns">
+    <button class="btn big" id="playBtn">PLAY</button>
+    <div id="titleRow">
+      <button class="btn alt" id="levelsBtn">LEVELS</button>
+      <button class="btn alt" id="newBtn">NEW GAME</button>
+      <button class="btn alt" id="setBtn">SOUND</button>
+    </div>
+  </div>
+</div>
+
+<div id="levels" class="hidden"><div class="panel"><h2>Pick a level</h2><div id="lvGrid"></div><div class="row"><button class="btn alt" id="lvBack">BACK</button></div></div></div>
+
+<div id="intro" class="overlay hidden"><div class="panel card">
+  <h2 id="inTitle">LEVEL 1</h2>
+  <div id="inWorld" style="opacity:.75;letter-spacing:.2em;font-weight:700"></div>
+  <div class="goal" id="inGoal"></div>
+  <div id="inNew"></div>
+  <div class="row"><button class="btn big" id="goBtn">GO!</button></div>
+  <div class="keys" id="inKeys">Mouse: aim · Hold click: power · Release: fire · Click mid-air: special move<br>Right-click / Z: zoom · C: look at the towers · Esc: pause</div>
+</div></div>
+
+<div id="result" class="overlay hidden"><div class="panel card">
+  <h2 id="resTitle">LEVEL CLEAR!</h2>
+  <div class="starsBig" id="resStars"><span>★</span><span>★</span><span>★</span></div>
+  <div class="lines" id="resLines"></div>
+  <div class="row"><button class="btn alt" id="resMenu">MENU</button><button class="btn alt" id="resRetry">RETRY</button><button class="btn big" id="resNext">NEXT ▶</button></div>
+</div></div>
+
+<div id="pause" class="overlay hidden"><div class="panel card">
+  <h2>Paused</h2>
+  <div class="slider"><label>Music</label><input type="range" id="volMusic" min="0" max="1" step="0.05"></div>
+  <div class="slider"><label>Sounds</label><input type="range" id="volSfx" min="0" max="1" step="0.05"></div>
+  <div class="row"><button class="btn alt" id="pMenu">MENU</button><button class="btn alt" id="pRestart">RESTART LEVEL</button><button class="btn" id="pResume">RESUME</button></div>
+</div></div>
+
+<div id="loading" class="overlay" style="background:#15171f"><div style="font-size:28px;font-weight:900;letter-spacing:.2em">LOADING…</div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

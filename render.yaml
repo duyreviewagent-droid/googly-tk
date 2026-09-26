@@ -1,0 +1,11 @@
+# Googly TK on Render: a free static site (never sleeps). The whole game is web/public.
+services:
+  - type: web
+    name: googly-tk
+    runtime: static
+    buildCommand: echo "nothing to build"
+    staticPublishPath: web/public
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
