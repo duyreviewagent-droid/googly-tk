@@ -61,7 +61,7 @@ function modes(t, dest, list, g = 1) { for (const [f, d, a] of list) tone(t, d, 
 export function place(p, cam) {
   if (!p || !cam) return { pan: 0, vol: 1 };
   const dx = p[0] - cam.x, dz = p[2] - cam.z, d = Math.hypot(dx, p[1] - cam.y, dz);
-  return { pan: Math.max(-0.8, Math.min(0.8, dx / Math.max(6, d) * 1.3)), vol: Math.min(1, 9 / (d + 3)) };
+  return { pan: Math.max(-0.8, Math.min(0.8, dx / Math.max(6, d) * 1.3)), vol: d > 70 ? 0 : Math.min(1, Math.pow(9 / (d + 3), 1.4)) };
 }
 let hitBudget = 0, hitT = 0;
 export const sfx = {

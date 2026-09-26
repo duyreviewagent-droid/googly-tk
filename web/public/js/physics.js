@@ -61,7 +61,7 @@ export class Sim {
     this.blocks = L.blocks.map((b, i) => {
       const P = this.peds[b.ped], M = MATS[b.mat];
       const body = w.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(P.x + b.p[0], P.h + b.p[1], P.z + b.p[2]).setRotation(quatYaw(b.yaw))
-        .setLinearDamping(0.02).setAngularDamping(0.08).setCanSleep(true));
+        .setLinearDamping(0.02).setAngularDamping(b.shape === 'cyl' ? 0.6 : 0.08).setCanSleep(true));
       let cd = b.shape === 'box' ? R.ColliderDesc.cuboid(...b.h) : R.ColliderDesc.cylinder(b.hh, b.r);
       cd = cd.setDensity(M.density).setFriction(M.friction).setRestitution(M.rest);
       if (M.breakF) cd = cd.setActiveEvents(R.ActiveEvents.CONTACT_FORCE_EVENTS).setContactForceEventThreshold(M.breakF * 0.5);
@@ -202,8 +202,12 @@ export class Sim {
       b.lv.x = v.x; b.lv.y = v.y; b.lv.z = v.z;
       if (!armed) continue;
       const M = MATS[b.mat];
+      // once it's lying on the ground, rolling resistance brings it to rest like a real can or block would
+      const bp = b.body.translation();
+      if (b.down && bp.y < 0.6) { const w = b.body.angvel(); const k = b.def.shape === 'cyl' ? 0.985 : 0.99; b.body.setAngvel({ x: w.x * k, y: w.y * k, z: w.z * k }, true); b.body.setLinvel({ x: v.x * (b.def.shape === 'cyl' ? 0.993 : 0.995), y: v.y, z: v.z * (b.def.shape === 'cyl' ? 0.993 : 0.995) }, true); }
       if (M.breakDv && dv > M.breakDv) { this.breakBlock(b); continue; }
-      if (dv > 1.1 && b.cool <= 0) { b.cool = 0.09; const p = b.body.translation(); this.events.push({ k: 'hit', mat: b.mat, p: [p.x, p.y, p.z], s: dv, m: b.mass }); }
+      const P0 = this.peds[b.ped], far = Math.hypot(bp.x - P0.x0, bp.z - P0.z) > 12;
+      if (dv > (b.down && bp.y < 0.6 ? 3 : 1.1) && !far && b.cool <= 0) { b.cool = b.down ? 0.25 : 0.09; const p = b.body.translation(); this.events.push({ k: 'hit', mat: b.mat, p: [p.x, p.y, p.z], s: dv, m: b.mass }); }
       const p = b.body.translation();
       if (p.y < -30) { this.breakBlock(b); }
     }
