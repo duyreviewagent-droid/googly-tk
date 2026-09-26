@@ -8,7 +8,11 @@ export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.2;
-  master = ctx.createGain(); master.gain.value = 0.9; master.connect(comp); comp.connect(ctx.destination);
+  master = ctx.createGain(); master.gain.value = 0.9; master.connect(comp);
+  // safety ceiling: nothing, ever, gets louder than this — a soft clipper then a limiter
+  const clip = ctx.createWaveShaper(), cv = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; cv[i] = Math.tanh(x * 1.2) * 0.8; } clip.curve = cv;
+  const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -6; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.1;
+  comp.connect(lim); lim.connect(clip); clip.connect(ctx.destination);
   sfxBus = ctx.createGain(); sfxBus.gain.value = settings.sfx; sfxBus.connect(master);
   musicBus = ctx.createGain(); musicBus.gain.value = settings.music; musicBus.connect(master);
   // reverb: a generated outdoor-ish impulse (short, bright early reflections, soft tail)
@@ -193,18 +197,27 @@ function keys(t, ms, d, g) {
     c.connect(e); e.connect(o); c.start(t); mod.start(t); c.stop(t + d + 0.05); mod.stop(t + d + 0.05);
   }
 }
+const plucks = new Map();
+function pluckBuf(m) {
+  if (plucks.has(m)) return plucks.get(m);
+  const sr = ctx.sampleRate, len = Math.floor(sr * 1.8), b = ctx.createBuffer(1, len, sr), d = b.getChannelData(0);
+  const N = Math.max(2, Math.round(sr / mtof(m))), ring = new Float32Array(N);
+  for (let i = 0; i < N; i++) ring[i] = Math.random() * 2 - 1;
+  let peak = 0;
+  for (let i = 0; i < len; i++) { const k = i % N, nx = (k + 1) % N; const v = ring[k]; ring[k] = 0.996 * 0.5 * (ring[k] + ring[nx]); d[i] = v; peak = Math.max(peak, Math.abs(v)); }
+  for (let i = 0; i < len; i++) d[i] /= peak || 1;       // averaging only ever shrinks it, so this is always <= 1
+  plucks.set(m, b);
+  return b;
+}
 function lead(t, m, d, g, kind) {
   const o = out(0.2, g, 0.4, musicBus), f = mtof(m);
   if (kind === 'marimba') { tone(t, 0.45 * d, o, { f, g: 0.8 }); tone(t, 0.12, o, { f: f * 4, g: 0.25 }); tone(t, 0.05, o, { f: f * 10, g: 0.08 }); }
   else if (kind === 'bell') { tone(t, 1.2 * d, o, { f, g: 0.5 }); tone(t, 0.8 * d, o, { f: f * 2.76, g: 0.2 }); tone(t, 0.4, o, { f: f * 5.4, g: 0.1 }); }
   else {
-    // plucked string (Karplus-Strong-ish via a short filtered noise burst into a tuned delay loop)
-    const dl = ctx.createDelay(0.05); dl.delayTime.value = 1 / f; const fb = ctx.createGain(); fb.gain.value = 0.965; const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200;
-    const src = ctx.createBufferSource(); src.buffer = noiseBuf; const eg = ctx.createGain(); eg.gain.setValueAtTime(0.5, t); eg.gain.linearRampToValueAtTime(0, t + 1 / f * 2);
-    src.connect(eg); eg.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl);
-    const outG = ctx.createGain(); outG.gain.setValueAtTime(1, t); outG.gain.setTargetAtTime(0, t + 0.6 * d, 0.1); lp.connect(outG); outG.connect(o);
-    src.start(t, Math.random()); src.stop(t + 0.05);
-    setTimeout(() => { try { fb.disconnect(); } catch {} }, (t - ctx.currentTime + 2) * 1000);
+    // plucked string: Karplus-Strong computed once per note into a buffer (no live feedback loop, so it can never run away)
+    const src = ctx.createBufferSource(); src.buffer = pluckBuf(m);
+    const e = ctx.createGain(); e.gain.setValueAtTime(0.9, t); e.gain.setTargetAtTime(0, t + 0.6 * d, 0.1);
+    src.connect(e); e.connect(o); src.start(t); src.stop(t + 2);
   }
 }
 
