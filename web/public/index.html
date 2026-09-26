@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#15171f">
 <title>Googly TK — Googly Tower Knockdown</title>
 <link rel="icon" href="icon.png">
 <style>
@@ -94,6 +97,86 @@
   #intro .gl .am { flex: none; }
   #intro .goal { font-size: 19px; margin-top: 6px; }
   .keys { font-size: 13px; opacity: .7; margin-top: 16px; line-height: 1.6; }
+
+  /* ---------- touch (phones / tablets): only html.touch, so desktop and the Mac app are untouched ---------- */
+  #touchUI { display: none; }
+  html.touch, html.touch body { touch-action: none; overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; position: fixed; inset: 0; width: 100%; }
+  html.touch canvas#c { touch-action: none; }
+  html.touch button { touch-action: manipulation; }
+  html.touch .scroll { touch-action: pan-y; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+  html.touch .btn { min-height: 44px; }
+  html.touch .btn:hover { transform: none; }
+  html.touch #touchUI { display: block; position: absolute; inset: 0; pointer-events: none; }
+  .tbtn { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; color: #fff; font-weight: 900; display: flex; align-items: center; justify-content: center; padding: 0; transition: transform .08s, opacity .2s; }
+  #tFire { --p: 0; --pc: #4ade80; right: calc(16px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); width: 108px; height: 108px; font-size: 22px; letter-spacing: .06em;
+    background: radial-gradient(circle at 50% 38%, #ff8a4a, #d9331f 70%); border: 0; box-shadow: 0 6px 0 #7a1a0e, 0 10px 24px rgba(0,0,0,.4); text-shadow: 0 2px 3px rgba(0,0,0,.45); }
+  #tFire::before { content: ''; position: absolute; inset: -9px; border-radius: 50%; background: conic-gradient(var(--pc) calc(var(--p) * 1turn), rgba(255,255,255,.22) 0); -webkit-mask: radial-gradient(closest-side, transparent 83%, #000 85%); mask: radial-gradient(closest-side, transparent 83%, #000 85%); }
+  #tFire span { position: relative; }
+  #tFire.charging { transform: scale(.93); box-shadow: 0 2px 0 #7a1a0e, 0 6px 16px rgba(0,0,0,.4); }
+  #tFire.act { background: radial-gradient(circle at 50% 38%, #6fb6ff, #1f5fd9 70%); box-shadow: 0 6px 0 #0e2f7a, 0 10px 24px rgba(0,0,0,.4); animation: throb .6s ease-in-out infinite alternate; }
+  #tFire.skip { background: radial-gradient(circle at 50% 38%, #f4f4f4, #b9b9b9 70%); color: var(--ink); text-shadow: none; box-shadow: 0 6px 0 #6a6a6a, 0 10px 24px rgba(0,0,0,.35); font-size: 19px; }
+  @keyframes throb { to { transform: scale(1.07); } }
+  .tbtn.dim { opacity: .45; } .tbtn.off { display: none; }
+  .tbtn.sm { width: 54px; height: 54px; font-size: 24px; background: rgba(10,12,18,.62); border: 1px solid var(--line); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .tbtn.sm.on { background: var(--y); border-color: #fff; }
+  #tZoom { right: calc(138px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  #tView { right: calc(138px + env(safe-area-inset-right)); bottom: calc(80px + env(safe-area-inset-bottom)); }
+  #tRestart { top: calc(12px + env(safe-area-inset-top)); right: calc(72px + env(safe-area-inset-right)); border-radius: 14px; width: 48px; height: 48px; font-size: 26px; }
+  html.touch #power { display: none !important; }
+  html.touch #hPause { top: calc(12px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); }
+  html.touch #hScore { top: calc(12px + env(safe-area-inset-top)); right: calc(128px + env(safe-area-inset-right)); font-size: 18px; padding: 6px 12px; }
+  html.touch #hLevel { top: calc(12px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); font-size: 15px; padding: 6px 12px; } html.touch #hLevel b { font-size: 20px; }
+  html.touch #meter { top: calc(12px + env(safe-area-inset-top)); padding: 6px 12px; width: min(340px, 34vw); }
+  html.touch #meter .lbl { font-size: 10px; margin-bottom: 4px; } html.touch #meter .bar { height: 12px; } html.touch #meter .pct { font-size: 13px; margin-top: 4px; }
+  html.touch #wind { top: calc(82px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); transform: none; padding: 6px 12px; }
+  html.touch #cleared { top: calc(84px + env(safe-area-inset-top)); font-size: 14px; padding: 6px 8px 6px 12px; white-space: nowrap; }
+  html.touch #ammo { left: calc(16px + env(safe-area-inset-left)); bottom: calc(18px + env(safe-area-inset-bottom)); max-width: calc(100vw - 230px - env(safe-area-inset-left) - env(safe-area-inset-right)); flex-wrap: wrap-reverse; gap: 6px; }
+  html.touch .am { width: 30px; height: 40px; } html.touch .am::before, html.touch .am::after { top: 7px; width: 11px; height: 11px; } html.touch .am::before { left: 3px; } html.touch .am::after { right: 3px; }
+  html.touch #ammo .am[style*="44px"] { width: 34px !important; height: 46px !important; }
+  html.touch #hint { bottom: auto; top: calc(84px + env(safe-area-inset-top)); white-space: normal; text-align: center; width: max-content; max-width: min(90vw, 520px); font-size: 14px; }
+  html.touch #saved { bottom: auto; top: calc(66px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); }
+  html.touch .slider input { height: 36px; }
+  html.touch #lvGrid .lv { min-height: 52px; }
+  html.touch #intro .gl .am, html.touch #intro .gl .am[style] { width: 38px !important; height: 50px !important; }
+  html.touch #intro .gl .am::before, html.touch #intro .gl .am::after { top: 9px; width: 13px; height: 13px; } html.touch #intro .gl .am::before { left: 5px; } html.touch #intro .gl .am::after { right: 5px; }
+
+  /* ---------- small screens (phones in either orientation) ---------- */
+  .overlay { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  @media (max-height: 520px), (max-width: 620px) {
+    .card { max-height: calc(100% - 16px); overflow-y: auto; }
+    .panel { padding: 16px 20px; border-radius: 20px; }
+    .panel h2 { font-size: 24px; margin-bottom: 8px; }
+    .row { margin-top: 12px; gap: 10px; }
+    .btn { font-size: 17px; padding: 11px 20px; }
+    .btn.big { font-size: 24px; padding: 13px 38px; }
+    .starsBig { font-size: 44px; margin: 0 0 4px; }
+    .lines { font-size: 15px; width: min(300px, 100%); }
+    .lines .tot { font-size: 19px; }
+    #intro .goal { font-size: 16px; } #intro .gl { margin-top: 10px; padding: 8px 10px; font-size: 14px; }
+    .keys { font-size: 12px; margin-top: 10px; line-height: 1.5; }
+    #levels .panel { max-height: calc(100% - 16px); display: flex; flex-direction: column; }
+    #lvGrid { max-height: none; flex: 1; min-height: 0; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+    #logo { margin-bottom: 6px; }
+    #logo .g, #logo .tk { font-size: min(15vw, 150px, 22vh); -webkit-text-stroke-width: 3px; }
+    #logo .sub { font-size: max(11px, min(3.2vw, 26px)); letter-spacing: .25em; }
+    #titleBtns { gap: 10px; } #titleRow { flex-wrap: wrap; justify-content: center; gap: 10px; padding: 0 12px; }
+    #banner .small { font-size: 18px; }
+  }
+  @media (max-height: 520px) {
+    #title { gap: 8px; }
+    #intro .card { min-width: min(560px, 92vw); }
+    .starsBig { font-size: 36px; }
+  }
+  /* portrait phone: level + score + pause across the top, the meter underneath */
+  @media (max-width: 620px) {
+    html.touch #meter { top: calc(70px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); right: calc(16px + env(safe-area-inset-right)); width: auto; transform: none; }
+    html.touch #hScore { right: calc(128px + env(safe-area-inset-right)); }
+    html.touch #wind { top: calc(140px + env(safe-area-inset-top)); }
+    html.touch #hint { top: calc(186px + env(safe-area-inset-top)); }
+    html.touch #cleared { top: calc(186px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); white-space: normal; width: max-content; max-width: calc(100vw - 32px); text-align: center; justify-content: center; flex-wrap: wrap; }
+    html.touch #hLevel .w { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .panel h2 { font-size: 22px; }
+  }
 </style>
 </head>
 <body>
@@ -106,11 +189,17 @@
   <div id="hScore" class="chip"><small>SCORE</small><span>0</span></div>
   <button id="hPause" class="chip" title="Pause (Esc)">❚❚</button>
   <div id="wind" class="chip hidden">WIND <span class="arrow">➜</span> <span class="v">0</span></div>
-  <div id="cleared" class="chip hidden">✔ CLEARED! Keep shooting for more stars, or <button class="btn small" id="finishBtn">FINISH ⏎</button></div>
+  <div id="cleared" class="chip hidden"><span id="clearedTxt">✔ CLEARED! Keep shooting for more stars, or</span> <button class="btn small" id="finishBtn">FINISH ⏎</button></div>
   <div id="ammo"></div>
   <div id="hint" class="chip">Move the mouse to aim · hold click to power up · let go to FIRE</div>
   <div id="power" class="hidden"><div class="lbl">POWER</div><div class="bar"><div class="fill"></div></div></div>
   <div id="saved" class="chip">SAVED ✓</div>
+  <div id="touchUI">
+    <button id="tFire" class="tbtn off"><span>FIRE</span></button>
+    <button id="tZoom" class="tbtn sm" aria-label="Zoom">🔍</button>
+    <button id="tView" class="tbtn sm" aria-label="Look at the towers">🏰</button>
+    <button id="tRestart" class="tbtn sm chip" aria-label="Restart level">↻</button>
+  </div>
 </div>
 <div id="banner" class="hidden"><div class="big"></div><div class="small"></div></div>
 
@@ -126,9 +215,9 @@
   </div>
 </div>
 
-<div id="levels" class="hidden"><div class="panel"><h2>Pick a level</h2><div id="lvGrid"></div><div class="row"><button class="btn alt" id="lvBack">BACK</button></div></div></div>
+<div id="levels" class="hidden"><div class="panel"><h2>Pick a level</h2><div id="lvGrid" class="scroll"></div><div class="row"><button class="btn alt" id="lvBack">BACK</button></div></div></div>
 
-<div id="intro" class="overlay hidden"><div class="panel card">
+<div id="intro" class="overlay hidden"><div class="panel card scroll">
   <h2 id="inTitle">LEVEL 1</h2>
   <div id="inWorld" style="opacity:.75;letter-spacing:.2em;font-weight:700"></div>
   <div class="goal" id="inGoal"></div>
@@ -137,14 +226,14 @@
   <div class="keys" id="inKeys">Mouse: aim · Hold click: power · Release: fire · Click mid-air: special move<br>Right-click / Z: zoom · C: look at the towers · Esc: pause</div>
 </div></div>
 
-<div id="result" class="overlay hidden"><div class="panel card">
+<div id="result" class="overlay hidden"><div class="panel card scroll">
   <h2 id="resTitle">LEVEL CLEAR!</h2>
   <div class="starsBig" id="resStars"><span>★</span><span>★</span><span>★</span></div>
   <div class="lines" id="resLines"></div>
   <div class="row"><button class="btn alt" id="resMenu">MENU</button><button class="btn alt" id="resRetry">RETRY</button><button class="btn big" id="resNext">NEXT ▶</button></div>
 </div></div>
 
-<div id="pause" class="overlay hidden"><div class="panel card">
+<div id="pause" class="overlay hidden"><div class="panel card scroll">
   <h2>Paused</h2>
   <div class="slider"><label>Music</label><input type="range" id="volMusic" min="0" max="1" step="0.05"></div>
   <div class="slider"><label>Sounds</label><input type="range" id="volSfx" min="0" max="1" step="0.05"></div>

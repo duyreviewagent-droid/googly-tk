@@ -12,17 +12,22 @@ const Q = new URLSearchParams(location.search);
 const LQ = Q.get('lq') === '1';
 if (Q.get('shim') === '1') window.requestAnimationFrame = f => setTimeout(() => f(performance.now()), 16);
 const $ = id => document.getElementById(id);
+// phones & tablets: touch controls, lighter rendering. Desktop / the Mac app never match this.
+const TOUCH = Q.get('touch') === '1' || matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
+const MOB = TOUCH || Math.min(screen.width, screen.height) < 600;
+if (TOUCH) document.documentElement.classList.add('touch');
 
 // ---------------------------------------------------------------- renderer
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LQ, powerPreference: 'high-performance', preserveDrawingBuffer: Q.has('icon') });
-renderer.setPixelRatio(Math.min(devicePixelRatio, LQ ? 1 : 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, LQ ? 1 : MOB ? 1.5 : 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = MOB ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 2500);
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
+if (MOB) { addEventListener('orientationchange', () => { resize(); setTimeout(resize, 250); setTimeout(resize, 700); }); if (window.visualViewport) visualViewport.addEventListener('resize', resize); }
 
 await RAPIER.init();
 buildMaterials(LQ);
@@ -70,7 +75,7 @@ function disposeLevel() {
 function loadLevel(n) {
   disposeLevel();
   L = makeLevel(n);
-  if (L.theme !== worldTheme) { if (world) world.dispose(); world = buildWorld(scene, renderer, L.theme, LQ); worldTheme = L.theme; }
+  if (L.theme !== worldTheme) { if (world) world.dispose(); world = buildWorld(scene, renderer, L.theme, LQ, MOB); worldTheme = L.theme; }
   sim = new Sim(RAPIER, L);
   levelGroup = new THREE.Group(); scene.add(levelGroup);
   pedMeshes = sim.peds.map(p => { const m = pedestalMesh(p); m.position.set(p.x, p.h / 2, p.z); levelGroup.add(m); return m; });
@@ -193,7 +198,7 @@ function startLevel(n) {
   $('inGoal').innerHTML = `Knock <b>${Math.round(L.need * 100)}%</b> of the blocks off their pedestals.<br>You have <b>${L.ammo.length}</b> googlys.`;
   const fresh = [...new Set(L.ammo)].filter(k => !save.seen[k]);
   const nw = $('inNew'); nw.innerHTML = '';
-  for (const k of fresh) { const d = document.createElement('div'); d.className = 'gl'; d.appendChild(amIcon(k)); const t = document.createElement('div'); t.innerHTML = `<b>NEW: ${GOOGLYS[k].name}</b><br>${GOOGLYS[k].tip}`; d.appendChild(t); nw.appendChild(d); save.seen[k] = 1; }
+  for (const k of fresh) { const d = document.createElement('div'); d.className = 'gl'; d.appendChild(amIcon(k)); const t = document.createElement('div'); t.innerHTML = `<b>NEW: ${GOOGLYS[k].name}</b><br>${TOUCH ? GOOGLYS[k].tip.replace(/Click/g, "Tap") : GOOGLYS[k].tip}`; d.appendChild(t); nw.appendChild(d); save.seen[k] = 1; }
   $('inKeys').classList.toggle('hidden', n > 3);
   show('intro'); show('hud');
   playMusic(L.theme, Math.floor((n - 1) / 5) + 1, false); duckMusic(1);
@@ -265,8 +270,9 @@ function failLevel() {
 
 // ---------------------------------------------------------------- input
 const mouse = { x: 0.5, y: 0.5 };
+let lastInput = 'mouse';
 function aimFromMouse() { tYaw = (mouse.x - 0.5) * 1.5; tPitch = Math.max(-0.08, Math.min(1.05, (1 - mouse.y) * 1.25 - 0.18)); }
-addEventListener('pointermove', e => { mouse.x = e.clientX / innerWidth; mouse.y = e.clientY / innerHeight; if (state === 'aim' && !paused) aimFromMouse(); });
+addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; lastInput = 'mouse'; mouse.x = e.clientX / innerWidth; mouse.y = e.clientY / innerHeight; if (state === 'aim' && !paused) aimFromMouse(); });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 function press() {
   if (paused) return;
@@ -280,8 +286,8 @@ function press() {
 function release() {
   if (charging) { charging = false; if (chargeSnd) { chargeSnd.stop(); chargeSnd = null; } fire(); }
 }
-canvas.addEventListener('pointerdown', e => { initAudio(); if (e.button === 2) { zoom = true; return; } if (e.button === 0) press(); });
-addEventListener('pointerup', e => { if (e.button === 2) { zoom = false; return; } if (e.button === 0) release(); });
+canvas.addEventListener('pointerdown', e => { initAudio(); if (e.pointerType !== 'mouse') { touchDown(e); return; } if (e.button === 2) { zoom = true; return; } if (e.button === 0) press(); });
+addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') return; if (e.button === 2) { zoom = false; return; } if (e.button === 0) release(); });
 const keys = new Set();
 addEventListener('keydown', e => {
   initAudio();
@@ -301,6 +307,66 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR' && state !== 'title' && state !== 'loading' && !e.metaKey) startLevel(L.n);
 });
 addEventListener('keyup', e => { keys.delete(e.code); if (e.code === 'Space') release(); if (e.code === 'KeyZ') zoom = false; });
+// ---- touch: drag anywhere to aim, hold the FIRE button to power up, let go to shoot; tap mid-air for the special move
+const drags = new Map();
+function touchDown(e) {
+  lastInput = 'touch';
+  if (paused) return;
+  if (state === 'aim') { drags.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { canvas.setPointerCapture(e.pointerId); } catch {} return; }
+  press();
+}
+canvas.addEventListener('pointermove', e => {
+  const d = drags.get(e.pointerId); if (!d) return;
+  if (state === 'aim' && !paused) {
+    const k = 1.1 / Math.min(innerWidth, innerHeight);
+    tYaw = Math.max(-0.9, Math.min(0.9, tYaw + (e.clientX - d.x) * k));
+    tPitch = Math.max(-0.08, Math.min(1.05, tPitch - (e.clientY - d.y) * k));
+  }
+  d.x = e.clientX; d.y = e.clientY;
+});
+const undrag = e => drags.delete(e.pointerId);
+canvas.addEventListener('pointerup', undrag); canvas.addEventListener('pointercancel', undrag);
+function cancelCharge() { if (charging) { charging = false; if (chargeSnd) chargeSnd.stop(); chargeSnd = null; } }
+const tFire = $('tFire');
+tFire.addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation(); initAudio(); lastInput = 'touch';
+  try { tFire.setPointerCapture(e.pointerId); } catch {}
+  tFire.pid = e.pointerId; press();
+});
+tFire.addEventListener('pointerup', e => { if (e.pointerId !== tFire.pid) return; tFire.pid = null; release(); });
+tFire.addEventListener('pointercancel', e => { if (e.pointerId !== tFire.pid) return; tFire.pid = null; cancelCharge(); });
+const tapBtn = (id, f) => $(id).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); initAudio(); lastInput = 'touch'; if (!paused) f(); });
+tapBtn('tZoom', () => { if (state === 'aim') { zoom = !zoom; towerView = false; sfx.click(); } });
+tapBtn('tView', () => { if (state === 'aim') { towerView = !towerView; zoom = false; sfx.click(); } });
+tapBtn('tRestart', () => { if (['aim', 'flight', 'watch'].includes(state)) { sfx.click(); startLevel(L.n); } });
+let fireLbl = '';
+function updateTouchUI() {
+  let lbl = '', cls = '';
+  if (state === 'aim') { lbl = loaded ? 'FIRE' : '…'; cls = loaded ? (charging ? 'charging' : '') : 'dim'; }
+  else if (state === 'flight' || state === 'watch') {
+    let act = '';
+    for (const a of sim.ammo) if (a.alive && !a.done && (a.kind === 'black' || (a.kind === 'blue' && !a.hit))) { act = a.kind === 'blue' ? 'SPLIT!' : 'BOOM!'; break; }
+    if (act) { lbl = act; cls = 'act'; } else if (state === 'watch') { lbl = 'SKIP ▶'; cls = watchT > 0.6 ? 'skip' : 'skip dim'; } else { lbl = ''; cls = 'off'; }
+  } else cls = 'off';
+  const k = lbl + '|' + cls;
+  if (k !== fireLbl) { fireLbl = k; tFire.querySelector('span').textContent = lbl; tFire.className = 'tbtn ' + cls; }
+  tFire.style.setProperty('--p', charging ? power.toFixed(3) : 0);
+  tFire.style.setProperty('--pc', `hsl(${Math.round(120 - power * 120)} 90% 55%)`);
+  const aimOn = state === 'aim';
+  $('tZoom').classList.toggle('on', zoom); $('tView').classList.toggle('on', towerView);
+  $('tZoom').classList.toggle('off', !aimOn); $('tView').classList.toggle('off', !aimOn); $('tRestart').classList.toggle('off', !['aim', 'flight', 'watch'].includes(state));
+}
+if (TOUCH) {
+  // the page itself never scrolls, rubber-bands or zooms (menus that scroll are marked .scroll)
+  document.addEventListener('touchmove', e => { if (!e.target.closest || !e.target.closest('.scroll, input')) e.preventDefault(); }, { passive: false });
+  for (const ev of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+  // iOS unlocks audio on touchend/click, not always on touchstart
+  for (const ev of ['touchend', 'click']) addEventListener(ev, () => initAudio(), { passive: true });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelCharge(); if (['aim', 'flight', 'watch'].includes(state) && !paused) togglePause(); } else initAudio(); });
+  $('hint').textContent = 'Drag to aim · hold FIRE to power up · let go to shoot';
+  $('inKeys').innerHTML = 'Drag anywhere: aim · Hold FIRE: power up · Let go: shoot<br>Tap mid-air: special move · 🔍 zoom · 🏰 look at the towers · ↻ restart';
+  $('clearedTxt').textContent = '✔ CLEARED! Shoot for more stars, or';
+}
 addEventListener('blur', () => { if (charging) { charging = false; if (chargeSnd) chargeSnd.stop(); chargeSnd = null; } if (['aim', 'flight', 'watch'].includes(state) && !paused) togglePause(); });
 
 function togglePause() {
@@ -407,7 +473,7 @@ function endWatch() {
   if (f >= 0.999) return finishLevel();
   if (ammoIdx >= L.ammo.length) return f >= L.need ? finishLevel() : failLevel();
   state = 'aim'; slow = 1;
-  aimFromMouse();
+  if (lastInput === 'mouse') aimFromMouse();
   show('cleared', f >= L.need);
   nextGoogly();
 }
@@ -462,6 +528,7 @@ function updateCamera(dt, t) {
     }
     camPos.lerp(T1, k * 1.4); camLook.lerp(T2, k * 1.4);
   }
+  if (camera.aspect < 1.3) fov = Math.min(100, 2 * Math.atan(Math.tan(fov * Math.PI / 360) * 1.3 / camera.aspect) * 180 / Math.PI);
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 8)); camera.updateProjectionMatrix();
   camera.position.copy(camPos); camera.lookAt(camLook);
   if (shake > 0) { camera.position.x += (Math.random() - 0.5) * shake * 0.35; camera.position.y += (Math.random() - 0.5) * shake * 0.35; shake = Math.max(0, shake - dt * 1.6); }
@@ -548,6 +615,7 @@ function frame(now) {
   if (world) world.update(dt, clock);
   if (state === "icon") { camera.updateProjectionMatrix(); window.__iconCam(); } else updateCamera(dt, clock);
   $('hint').classList.toggle('hidden', !(state === 'aim' && L && L.n <= 3 && ammoIdx === 0));
+  if (TOUCH && sim) updateTouchUI();
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
@@ -570,4 +638,4 @@ if (Q.get('auto') === '1') setInterval(() => {
   tYaw = yaw = Math.atan2(P.x, -P.z); tPitch = pitch = Math.atan((v * v - Math.sqrt(disc)) / (G * dx)); power = pw;
   fire();
 }, 500);
-window.__gtk = { get state() { return state; }, get sim() { return sim; }, get L() { return L; }, fire, startLevel };
+window.__gtk = { get state() { return state; }, get sim() { return sim; }, get L() { return L; }, fire, startLevel, get aim() { return { yaw: +yaw.toFixed(3), pitch: +pitch.toFixed(3), power: +power.toFixed(3), chargeT: +chargeT.toFixed(2), charging, loaded, zoom, towerView, ammoIdx, frac: sim ? +sim.frac.toFixed(3) : 0, touch: TOUCH }; } };

@@ -204,7 +204,7 @@ function cloudTex() {
   });
 }
 
-export function buildWorld(scene, renderer, theme, lq) {
+export function buildWorld(scene, renderer, theme, lq, mob = false) {
   const S = SKY[theme];
   const group = new THREE.Group(); scene.add(group);
   const sunDir = new THREE.Vector3(Math.sin(S.azi) * Math.cos(S.elev), Math.sin(S.elev), -Math.cos(S.azi) * Math.cos(S.elev) * 0.6 + 0.4).normalize();
@@ -222,7 +222,7 @@ export function buildWorld(scene, renderer, theme, lq) {
   sun.position.copy(sunDir).multiplyScalar(80).add(new THREE.Vector3(0, 0, -28));
   sun.target.position.set(0, 0, -28); group.add(sun.target);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(lq ? 1024 : 4096, lq ? 1024 : 4096);
+  const sm = lq ? 1024 : mob ? 2048 : 4096; sun.shadow.mapSize.set(sm, sm); // phones get a lighter shadow map
   const sc = sun.shadow.camera; sc.left = -42; sc.right = 42; sc.top = 42; sc.bottom = -42; sc.near = 10; sc.far = 200;
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; sun.shadow.radius = 3;
   group.add(sun);
